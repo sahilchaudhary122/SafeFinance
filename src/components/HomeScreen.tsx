@@ -1,144 +1,199 @@
 import React from 'react';
+import { ArrowRight, Clock3, CreditCard, History, QrCode, Send } from 'lucide-react';
 import { useApp } from '../state/AppContext';
+import { getInitials } from '../lib/dummyData';
 import { translations } from '../lib/i18n';
-import { Send, QrCode, History, Shield, ArrowRight, AlertTriangle, ShieldCheck } from 'lucide-react';
+
+function formatAmount(amount: number) {
+  return amount.toLocaleString('en-IN');
+}
 
 export const HomeScreen: React.FC = () => {
-  const { language, setScreen, history, setStaySafeOpen } = useApp();
+  const {
+    availableBalance,
+    balanceVisible,
+    checkBalance,
+    currentUser,
+    history,
+    language,
+    pendingIncomingAmount,
+    pendingIncomingCount,
+    setScreen,
+    toggleBalanceVisible
+  } = useApp();
+
   const t = translations[language];
 
-  // Recent 2 transactions for preview
-  const recentTransactions = history.slice(0, 2);
+  if (!currentUser) {
+    return null;
+  }
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-6">
-      {/* Hero Welcome Banner */}
-      <div className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-gradient-to-b from-emerald-950/40 via-slate-900/80 to-slate-900 p-6 text-center shadow-xl">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-lg shadow-emerald-500/20">
-          <Shield className="h-9 w-9 stroke-[2.2]" />
-        </div>
-        
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-          {t.appTitle}
-        </h1>
-        
-        <p className="mx-auto mt-2 max-w-sm text-sm sm:text-base font-medium text-emerald-200/90 leading-snug">
-          "{t.appSubtitle}"
-        </p>
-
-        <div className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-300">
-          <span>{t.tagline}</span>
-        </div>
-      </div>
-
-      {/* Primary Action: Send Money (Very prominent, large tap target) */}
-      <div className="space-y-3">
-        <button
-          onClick={() => setScreen('send')}
-          className="group relative flex w-full items-center justify-between rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 p-5 text-left text-white shadow-xl shadow-emerald-900/30 transition-all hover:scale-[1.01] hover:from-emerald-500 hover:to-teal-500 active:scale-[0.99] focus:outline-none focus:ring-4 focus:ring-emerald-500/30"
-        >
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white/15 backdrop-blur-md">
-              <Send className="h-7 w-7 text-white" />
+    <div className="space-y-5">
+      <section className="rounded-[28px] border p-6 shadow-xl" style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-accent-soft)' }}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.24em]" style={{ color: 'var(--sf-text-muted)' }}>
+              {t.paymentDashboard}
             </div>
-            <div>
-              <div className="text-xl font-bold tracking-tight">{t.sendMoney}</div>
-              <div className="text-xs text-emerald-100/80">AI Safety Check active before every transfer</div>
-            </div>
+            <h1 className="mt-2 text-3xl font-black" style={{ color: 'var(--sf-text-strong)' }}>
+              {t.welcomeUser}, {currentUser.fullName}
+            </h1>
+            <p className="mt-2 max-w-md text-sm leading-6" style={{ color: 'var(--sf-text-soft)' }}>
+              {t.switchAccountHint}
+            </p>
           </div>
-          <ArrowRight className="h-6 w-6 text-emerald-200 transition-transform group-hover:translate-x-1" />
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl text-lg font-black text-white" style={{ background: 'var(--sf-accent-gradient)' }}>
+            {getInitials(currentUser.fullName)}
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-3xl border p-4" style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel)' }}>
+            <div className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--sf-text-muted)' }}>
+              {t.availableBalance}
+            </div>
+            <div className="mt-3 text-3xl font-black" style={{ color: 'var(--sf-text-strong)' }}>
+              {balanceVisible ? `Rs. ${formatAmount(availableBalance)}` : 'Rs. ••••••'}
+            </div>
+            <button
+              type="button"
+              onClick={balanceVisible ? toggleBalanceVisible : checkBalance}
+              className="mt-4 rounded-full px-4 py-2 text-xs font-bold text-white"
+              style={{ background: 'var(--sf-accent-gradient)' }}
+            >
+              {balanceVisible ? t.hideBalance : t.checkBalance}
+            </button>
+          </div>
+
+          <div className="rounded-3xl border p-4" style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel)' }}>
+            <div className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: 'var(--sf-text-muted)' }}>
+              {t.pendingIncoming}
+            </div>
+            <div className="mt-3 text-3xl font-black" style={{ color: 'var(--sf-text-strong)' }}>
+              {pendingIncomingCount > 0 ? `Rs. ${formatAmount(pendingIncomingAmount)}` : 'Rs. 0'}
+            </div>
+            <p className="mt-3 text-sm leading-6" style={{ color: 'var(--sf-text-soft)' }}>
+              {pendingIncomingCount > 0 ? t.pendingIncomingDesc : t.noPendingIncoming}
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-3">
+        <button
+          type="button"
+          onClick={() => setScreen('send')}
+          className="rounded-[26px] border p-5 text-left shadow-lg transition hover:-translate-y-0.5"
+          style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel)' }}
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl text-white" style={{ background: 'var(--sf-accent-gradient)' }}>
+            <Send className="h-5 w-5" />
+          </div>
+          <div className="mt-4 text-lg font-black" style={{ color: 'var(--sf-text-strong)' }}>
+            {t.sendMoney}
+          </div>
+          <div className="mt-1 text-sm" style={{ color: 'var(--sf-text-soft)' }}>
+            {t.sendMoneyHelper}
+          </div>
         </button>
 
-        {/* Secondary Actions: Scan QR & Transaction History */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Scan QR (Stub / Coming Soon) */}
-          <div className="relative flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/70 p-4 opacity-75">
-            <div>
-              <div className="flex items-center justify-between">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-slate-400">
-                  <QrCode className="h-5 w-5" />
-                </div>
-                <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-slate-400">
-                  Coming Soon
-                </span>
-              </div>
-              <div className="mt-3 text-sm font-bold text-slate-300">
-                {t.scanQr.split('(')[0]}
-              </div>
-            </div>
-            <p className="mt-1 text-[11px] text-slate-500">Camera QR safety scan</p>
+        <button
+          type="button"
+          onClick={() => setScreen('scan-qr')}
+          className="rounded-[26px] border p-5 text-left shadow-lg transition hover:-translate-y-0.5"
+          style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel)' }}
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl text-white" style={{ background: 'linear-gradient(135deg, #7c3aed, #2563eb)' }}>
+            <QrCode className="h-5 w-5" />
           </div>
-
-          {/* Transaction History Button */}
-          <button
-            onClick={() => setScreen('history')}
-            className="flex flex-col justify-between rounded-2xl border border-slate-700/80 bg-slate-900/90 p-4 text-left transition hover:border-slate-600 hover:bg-slate-800/80 active:scale-[0.98]"
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-emerald-400">
-              <History className="h-5 w-5" />
-            </div>
-            <div className="mt-3">
-              <div className="text-sm font-bold text-white">{t.history}</div>
-              <p className="mt-0.5 text-[11px] text-slate-400">{history.length} logged payments</p>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Stay Safe Educational Teaser Card */}
-      <div 
-        onClick={() => setStaySafeOpen(true)}
-        className="cursor-pointer rounded-2xl border border-amber-500/20 bg-amber-950/20 p-4 transition hover:border-amber-500/40 hover:bg-amber-950/30"
-      >
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2 text-sm font-bold text-amber-300">
-            <AlertTriangle className="h-4 w-4" />
-            <span>{t.staySafeTitle}</span>
+          <div className="mt-4 text-lg font-black" style={{ color: 'var(--sf-text-strong)' }}>
+            {t.scanQrPay}
           </div>
-          <span className="text-xs font-semibold text-amber-400 underline">Open Guide</span>
-        </div>
-        <p className="mt-1.5 text-xs text-slate-300 leading-relaxed">
-          Never enter your UPI PIN to receive money. Tap here to review the 5 safety rules.
-        </p>
-      </div>
+          <div className="mt-1 text-sm" style={{ color: 'var(--sf-text-soft)' }}>
+            {t.scanQrHelper}
+          </div>
+        </button>
 
-      {/* Recent Protected Payments Preview */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-        <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-            {t.recentActivity}
-          </span>
+        <button
+          type="button"
+          onClick={() => setScreen('history')}
+          className="rounded-[26px] border p-5 text-left shadow-lg transition hover:-translate-y-0.5"
+          style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel)' }}
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl text-white" style={{ background: 'linear-gradient(135deg, #3b82f6, #0ea5e9)' }}>
+            <History className="h-5 w-5" />
+          </div>
+          <div className="mt-4 text-lg font-black" style={{ color: 'var(--sf-text-strong)' }}>
+            {t.history}
+          </div>
+          <div className="mt-1 text-sm" style={{ color: 'var(--sf-text-soft)' }}>
+            {history.length} {t.storedTransactions}
+          </div>
+        </button>
+      </section>
+
+      <section className="rounded-[26px] border p-5" style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel)' }}>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-base font-black" style={{ color: 'var(--sf-text-strong)' }}>
+              {t.recentTransactions}
+            </div>
+            <div className="text-sm" style={{ color: 'var(--sf-text-muted)' }}>
+              {currentUser.upiId}
+            </div>
+          </div>
           <button
+            type="button"
             onClick={() => setScreen('history')}
-            className="text-xs font-semibold text-emerald-400 hover:underline"
+            className="inline-flex items-center gap-1 text-sm font-bold"
+            style={{ color: 'var(--sf-accent)' }}
           >
-            {t.viewAllHistory} →
+            {t.viewHistory}
+            <ArrowRight className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="mt-3 divide-y divide-slate-800/60">
-          {recentTransactions.map((tx) => (
-            <div key={tx.id} className="flex items-center justify-between py-2.5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 font-bold text-sm">
-                  {tx.recipientName.charAt(0)}
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-white">{tx.recipientName}</div>
-                  <div className="text-xs text-slate-400">{tx.timestamp}</div>
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm font-bold text-white">₹{tx.amount.toLocaleString('en-IN')}</div>
-                <div className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-400">
-                  <ShieldCheck className="h-3 w-3" />
-                  <span>{tx.status === 'safe' ? t.safeBadge : t.reviewedBadge}</span>
-                </div>
-              </div>
+        <div className="mt-4 space-y-3">
+          {history.length === 0 ? (
+            <div className="rounded-2xl border border-dashed p-4 text-sm" style={{ borderColor: 'var(--sf-border)', color: 'var(--sf-text-muted)' }}>
+              {t.noTransactions}
             </div>
-          ))}
+          ) : (
+            history.slice(0, 4).map((transaction) => (
+              <div
+                key={transaction.id}
+                className="flex items-center justify-between rounded-2xl border p-4"
+                style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel-soft)' }}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl text-white" style={{ background: transaction.direction === 'debit' ? 'var(--sf-accent-gradient)' : 'linear-gradient(135deg, #22c55e, #16a34a)' }}>
+                    {transaction.direction === 'debit' ? <Send className="h-4 w-4" /> : <CreditCard className="h-4 w-4" />}
+                  </div>
+                  <div>
+                    <div className="font-bold" style={{ color: 'var(--sf-text-strong)' }}>
+                      {transaction.recipientName}
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-xs" style={{ color: 'var(--sf-text-muted)' }}>
+                      <Clock3 className="h-3.5 w-3.5" />
+                      {transaction.timestamp}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <div className="text-base font-black" style={{ color: transaction.direction === 'debit' ? 'var(--sf-danger)' : 'var(--sf-success)' }}>
+                    {transaction.direction === 'debit' ? '-' : '+'}Rs. {formatAmount(transaction.amount)}
+                  </div>
+                  <div className="text-xs" style={{ color: 'var(--sf-text-muted)' }}>
+                    {transaction.reason}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
-      </div>
+      </section>
     </div>
   );
 };

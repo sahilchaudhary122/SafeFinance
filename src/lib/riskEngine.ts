@@ -1,138 +1,210 @@
 import type { Transaction } from './dummyData';
 
-export type RiskLevel = 'low' | 'medium' | 'high';
+export type ContactRelationship = 'new' | 'known' | 'family';
 
-export interface RiskReasonDetail {
-  code: 'NEW_RECIPIENT' | 'HIGH_AMOUNT' | 'EXCEEDS_AVERAGE' | 'RAPID_DUPLICATE' | 'KNOWN_NORMAL';
-  textEn: string;
-  textTa: string;
-  textHi: string;
+export interface SafetyFinding {
+  id: string;
+  type: 'recipient_history' | 'contact_status' | 'amount_pattern' | 'timing';
+  icon: 'user' | 'history' | 'trending-up' | 'check' | 'alert' | 'info';
+  titleEn: string;
+  titleTa: string;
+  titleHi: string;
+  descriptionEn: string;
+  descriptionTa: string;
+  descriptionHi: string;
+  badgeEn?: string;
+  badgeTa?: string;
+  badgeHi?: string;
 }
 
-export interface RiskResult {
-  level: RiskLevel;
-  reasons: string[]; // English reasons for direct access
-  reasonDetails: RiskReasonDetail[]; // Localized reason details
-  isKnownRecipient: boolean;
+export interface SafetyScanResult {
+  recipientName: string;
+  amount: number;
+  isNewContact: boolean;
+  contactRelationship: ContactRelationship;
+  pastTransactionsCount: number;
+  totalPastAmount: number;
   averagePastAmount?: number;
-  multiplier?: number;
-  isRapidDuplicate?: boolean;
+  lastPaymentDate?: string;
+  isUnusualAmount: boolean;
+  amountRatio?: number;
+  findings: SafetyFinding[];
+  neutralGuidanceEn: string;
+  neutralGuidanceTa: string;
+  neutralGuidanceHi: string;
 }
 
 /**
- * Pure, deterministic risk assessment engine.
- *
- * @param recipientName Name of payee
- * @param amount Payment amount in INR
- * @param history Full transaction history
- * @param sessionPaymentsToRecipient Number of payments already made to this recipient in current session
+ * Pure, deterministic safety inspection engine.
+ * Provides neutral factual observations to empower the user's payment decision
+ * without assigning biased "risk scores" or "low/medium/high risk" labels.
  */
-export function calculateRisk(
+export function inspectPaymentSafety(
   recipientName: string,
   amount: number,
-  history: Transaction[],
-  sessionPaymentsToRecipient = 0
-): RiskResult {
+  history: Transaction[]
+): SafetyScanResult {
   const normalizedName = recipientName.trim().toLowerCase();
 
-  // 1. Find prior payments to this recipient in history
+  // Find previous payments to this recipient
   const pastPayments = history.filter(
-    (tx) => tx.recipientName.trim().toLowerCase() === normalizedName
+    (tx) => tx.paymentType === 'p2p' && tx.recipientName.trim().toLowerCase() === normalizedName
   );
-  const isKnownRecipient = pastPayments.length > 0;
 
+  const pastTransactionsCount = pastPayments.length;
+  const isNewContact = pastTransactionsCount <= 3;
+  const contactRelationship: ContactRelationship =
+    pastTransactionsCount > 3 ? 'known' : 'new';
+
+  let totalPastAmount = 0;
   let averagePastAmount = 0;
-  let multiplier = 1;
+  let isUnusualAmount = false;
+  let amountRatio: number | undefined;
+  let lastPaymentDate: string | undefined;
 
-  if (isKnownRecipient) {
-    const total = pastPayments.reduce((sum, tx) => sum + tx.amount, 0);
-    averagePastAmount = total / pastPayments.length;
-    multiplier = amount / (averagePastAmount || 1);
+  if (!isNewContact) {
+    totalPastAmount = pastPayments.reduce((sum, tx) => sum + tx.amount, 0);
+    averagePastAmount = Math.round(totalPastAmount / pastTransactionsCount);
+    amountRatio = Number((amount / (averagePastAmount || 1)).toFixed(1));
+    isUnusualAmount = amount > 1.5 * averagePastAmount;
+    lastPaymentDate = pastPayments[0]?.timestamp || pastPayments[0]?.dateStr;
   }
 
-  const reasons: string[] = [];
-  const reasonDetails: RiskReasonDetail[] = [];
+  const findings: SafetyFinding[] = [];
 
-  // Evaluate conditions
-  const isUnknown = !isKnownRecipient;
-  const isRapidDuplicate = isUnknown && sessionPaymentsToRecipient >= 2;
-  const exceedsAverage = isKnownRecipient && amount > 1.5 * averagePastAmount;
-  const isVeryLargeAmount = amount >= 25000;
-  const isLargeAmount = amount >= 10000;
-
-  // Determine Level:
-  // HIGH RISK rules:
-  // - unknown recipient AND amount >= 10,000
-  // - unknown recipient AND amount >= 25,000 (always high)
-  // - 2+ payments to same new recipient in same session (duplicate/rapid pattern)
-  // - Or amount >= 50,000 even if known
-  let level: RiskLevel = 'low';
-
-  if (isRapidDuplicate || (isUnknown && isLargeAmount) || isVeryLargeAmount) {
-    level = 'high';
-  } else if (isUnknown || exceedsAverage) {
-    level = 'medium';
+  // Finding 1: Contact Familiarity & Recipient Status
+  if (isNewContact) {
+    findings.push({
+      id: 'contact-status-new',
+      type: 'contact_status',
+      icon: 'info',
+      badgeEn: 'First payment to this contact',
+      badgeTa: 'இந்த நபருக்கான முதல் பரிவர்த்தனை',
+      badgeHi: 'इस संपर्क को पहला भुगतान',
+      titleEn: 'First Payment to this Recipient',
+      titleTa: 'புதிய பெறுநர்',
+      titleHi: 'नया प्राप्तकर्ता',
+      descriptionEn: pastTransactionsCount === 0
+        ? `You have no prior transaction history with ${recipientName}. Please double-check that the name matches your intended payee.`
+        : `You have made ${pastTransactionsCount} payment${pastTransactionsCount === 1 ? '' : 's'} to ${recipientName} before. This person becomes a known contact after more than 3 payments.`,
+      descriptionTa: pastTransactionsCount === 0
+        ? `${recipientName} அவர்களுக்கு நீங்கள் இதற்கு முன் பணம் அனுப்பியதில்லை. பெறுநர் பெயர் சரியானதுதானா என உறுதி செய்யவும்.`
+        : `${recipientName} அவர்களுக்கு நீங்கள் முன்பு ${pastTransactionsCount} முறை பணம் அனுப்பியுள்ளீர்கள். 3 முறைக்கு மேல் அனுப்பிய பிறகு இந்த நபர் அறிந்த தொடர்பாக மாறுவார்.`,
+      descriptionHi: pastTransactionsCount === 0
+        ? `${recipientName} के साथ आपका कोई पिछला लेन-देन नहीं है। कृपया पुष्टि करें कि नाम सही प्राप्तकर्ता से मेल खाता है।`
+        : `आपने ${recipientName} को पहले ${pastTransactionsCount} बार भुगतान किया है। 3 से अधिक भुगतानों के बाद यह व्यक्ति परिचित संपर्क बनेगा।`
+    });
   } else {
-    level = 'low';
-  }
-
-  // Populate reasons (stackable)
-  if (isRapidDuplicate) {
-    reasons.push('Multiple rapid payments sent to this new recipient in this session.');
-    reasonDetails.push({
-      code: 'RAPID_DUPLICATE',
-      textEn: 'Multiple payments to this new recipient were made in this session. Beware of rapid transfer scams.',
-      textTa: 'இந்த புதிய நபருக்கு மிகக் குறுகிய நேரத்தில் அடுத்தடுத்து பணம் அனுப்பப்படுகிறது. பண மோசடி எச்சரிக்கை!',
-      textHi: 'इस नए प्राप्तकर्ता को इस सत्र में तेजी से कई भुगतान किए गए हैं। ट्रांसफर फ्रॉड से सावधान रहें।'
+    findings.push({
+      id: 'contact-status-familiar',
+      type: 'contact_status',
+      icon: 'check',
+      badgeEn: `Familiar Contact (${pastTransactionsCount} previous payments)`,
+      badgeTa: `அறிந்த தொடர்பு (${pastTransactionsCount} முறை அனுப்பப்பட்டுள்ளது)`,
+      badgeHi: `परिचित संपर्क (${pastTransactionsCount} बार भुगतान किया गया)`,
+      titleEn: 'Familiar Contact History',
+      titleTa: 'அறிந்த பெறுநர் வரலாறு',
+      titleHi: 'पूर्व लेन-देन इतिहास',
+      descriptionEn: `You have successfully completed ${pastTransactionsCount} payment${pastTransactionsCount > 1 ? 's' : ''} to ${recipientName} previously.`,
+      descriptionTa: `நீங்கள் ${recipientName} அவர்களுக்கு இதற்கு முன் ${pastTransactionsCount} முறை வெற்றிகரமாக பணம் செலுத்தியுள்ளீர்கள்.`,
+      descriptionHi: `आपने पहले ${recipientName} को ${pastTransactionsCount} बार सफलतापूर्वक भुगतान किया है।`
     });
   }
 
-  if (isUnknown) {
-    reasons.push('This is a new recipient. You have never sent money to this person before.');
-    reasonDetails.push({
-      code: 'NEW_RECIPIENT',
-      textEn: 'This is a new recipient. You have never sent money to this person before.',
-      textTa: 'இது ஒரு புதிய பெறுநர். நீங்கள் இதற்கு முன் இவருக்கு பணம் அனுப்பவில்லை.',
-      textHi: 'यह एक नया प्राप्तकर्ता है। आपने पहले कभी इस व्यक्ति को पैसे नहीं भेजे हैं।'
+  // Finding 2: Transaction History & Amounts Pattern
+  if (!isNewContact) {
+    if (isUnusualAmount) {
+      findings.push({
+        id: 'amount-comparison-unusual',
+        type: 'amount_pattern',
+        icon: 'alert',
+        badgeEn: `Higher than usual (~₹${averagePastAmount.toLocaleString('en-IN')})`,
+        badgeTa: `வழக்கத்தை விட அதிக தொகை`,
+        badgeHi: `सामान्य से अधिक राशि`,
+        titleEn: 'Unusual Amount Comparison',
+        titleTa: 'தொகை ஒப்பீடு',
+        titleHi: 'राशि तुलना',
+        descriptionEn: `This payment of ₹${amount.toLocaleString('en-IN')} is ${amountRatio}x higher than your average transfer of ₹${averagePastAmount.toLocaleString('en-IN')} to this contact.`,
+        descriptionTa: `இந்த ₹${amount.toLocaleString('en-IN')} தொகையானது, நீங்கள் வழக்கமாக அனுப்பும் சராசரி தொகையை (₹${averagePastAmount.toLocaleString('en-IN')}) விட ${amountRatio} மடங்கு அதிகம்.`,
+        descriptionHi: `₹${amount.toLocaleString('en-IN')} का यह भुगतान इस संपर्क को आपके औसत भुगतान (₹${averagePastAmount.toLocaleString('en-IN')}) से ${amountRatio} गुना अधिक है।`
+      });
+    } else {
+      findings.push({
+        id: 'amount-comparison-normal',
+        type: 'amount_pattern',
+        icon: 'history',
+        badgeEn: `Consistent with past payments`,
+        badgeTa: `வழக்கமான வரம்பில் உள்ளது`,
+        badgeHi: `सामान्य सीमा में है`,
+        titleEn: 'Typical Payment Amount',
+        titleTa: 'வழக்கமான கட்டண வரம்பு',
+        titleHi: 'सामान्य भुगतान राशि',
+        descriptionEn: `₹${amount.toLocaleString('en-IN')} is consistent with your typical payments (average ₹${averagePastAmount.toLocaleString('en-IN')}) to ${recipientName}.`,
+        descriptionTa: `₹${amount.toLocaleString('en-IN')} என்பது நீங்கள் வழக்கமாக ${recipientName} அவர்களுக்கு அனுப்பும் சராசரி வரம்பிற்குள் (₹${averagePastAmount.toLocaleString('en-IN')}) உள்ளது.`,
+        descriptionHi: `₹${amount.toLocaleString('en-IN')} आपके सामान्य भुगतान औसत (₹${averagePastAmount.toLocaleString('en-IN')}) के अनुरूप है।`
+      });
+    }
+  } else {
+    // New contact amount detail
+    findings.push({
+      id: 'new-contact-amount-check',
+      type: 'amount_pattern',
+      icon: 'history',
+      badgeEn: `Starting transfer: ₹${amount.toLocaleString('en-IN')}`,
+      badgeTa: `முதல் தொகை: ₹${amount.toLocaleString('en-IN')}`,
+      badgeHi: `आरंभिक राशि: ₹${amount.toLocaleString('en-IN')}`,
+      titleEn: 'Initial Transfer Amount',
+      titleTa: 'பரிவர்த்தனைத் தொகை',
+      titleHi: 'प्रारंभिक लेन-देन राशि',
+      descriptionEn: `You are sending ₹${amount.toLocaleString('en-IN')} as your first payment to this contact. Ensure the receiver has requested this exact amount.`,
+      descriptionTa: `நீங்கள் முதல் முறையாக இந்த நபருக்கு ₹${amount.toLocaleString('en-IN')} அனுப்புகிறீர்கள். தொகை சரியானதா என்பதை உறுதிப்படுத்திக் கொள்ளுங்கள்.`,
+      descriptionHi: `आप इस संपर्क को पहली बार ₹${amount.toLocaleString('en-IN')} भेज रहे हैं। सुनिश्चित करें कि प्राप्तकर्ता ने इसी राशि का अनुरोध किया है।`
     });
   }
 
-  if (isLargeAmount || isVeryLargeAmount) {
-    reasons.push(`Unusually large transfer amount (₹${amount.toLocaleString('en-IN')}).`);
-    reasonDetails.push({
-      code: 'HIGH_AMOUNT',
-      textEn: `This payment amount (₹${amount.toLocaleString('en-IN')}) is unusually high. Double check before paying.`,
-      textTa: `இந்த தொகை (₹${amount.toLocaleString('en-IN')}) வழக்கத்தை விட மிக அதிகமாக உள்ளது. செலுத்தும் முன் உறுதிப்படுத்தவும்.`,
-      textHi: `यह राशि (₹${amount.toLocaleString('en-IN')}) असामान्य रूप से बहुत बड़ी है। भुगतान से पहले दोबारा जांचें।`
-    });
-  } else if (exceedsAverage) {
-    const avgFormatted = Math.round(averagePastAmount).toLocaleString('en-IN');
-    reasons.push(`Amount exceeds typical payment to this recipient (average ₹${avgFormatted}).`);
-    reasonDetails.push({
-      code: 'EXCEEDS_AVERAGE',
-      textEn: `This amount (₹${amount.toLocaleString('en-IN')}) is higher than your usual payment of ~₹${avgFormatted} to ${recipientName}.`,
-      textTa: `இந்த தொகை (₹${amount.toLocaleString('en-IN')}) வழக்கமாக ${recipientName} என்பவருக்கு நீங்கள் அனுப்பும் சராசரி தொகையை (₹${avgFormatted}) விட அதிகம்.`,
-      textHi: `यह राशि (₹${amount.toLocaleString('en-IN')}) इस प्राप्तकर्ता को आपके सामान्य औसत भुगतान (~₹${avgFormatted}) से काफी अधिक है।`
-    });
-  }
-
-  if (level === 'low') {
-    reasons.push('Known recipient with normal payment amount. Looks safe.');
-    reasonDetails.push({
-      code: 'KNOWN_NORMAL',
-      textEn: `Looks normal. You regularly pay ~₹${Math.round(averagePastAmount).toLocaleString('en-IN')} to ${recipientName}.`,
-      textTa: `பரிவர்த்தனை சாதாரணமாக உள்ளது. நீங்கள் ${recipientName} என்பவருக்கு வழக்கமாக பணம் செலுத்துகிறீர்கள்.`,
-      textHi: `सब सामान्य लग रहा है। आप नियमित रूप से ${recipientName} को भुगतान करते रहे हैं।`
-    });
-  }
+  // Finding 3: Recipient Details Verification
+  findings.push({
+    id: 'recipient-identity-check',
+    type: 'recipient_history',
+    icon: 'user',
+    titleEn: 'Payee Verification',
+    titleTa: 'பெறுநர் சரிபார்ப்பு',
+    titleHi: 'प्राप्तकर्ता विवरण',
+    descriptionEn: `Payment will be credited directly to ${recipientName}. Remember that transfers to incorrect numbers or UPI IDs cannot always be reversed immediately.`,
+    descriptionTa: `பணம் நேரடியாக ${recipientName} என்பவரின் கணக்கிற்கு செல்லும். தவறான எண்ணிற்கு பணம் அனுப்பினால் உடனே திரும்பப் பெற முடியாது.`,
+    descriptionHi: `भुगतान सीधे ${recipientName} के खाते में जाएगा। ध्यान रहे कि गलत नंबर पर भेजे गए पैसे तुरंत वापस नहीं हो सकते।`
+  });
 
   return {
-    level,
-    reasons,
-    reasonDetails,
-    isKnownRecipient,
-    averagePastAmount: isKnownRecipient ? Math.round(averagePastAmount) : undefined,
-    multiplier: isKnownRecipient ? Number(multiplier.toFixed(1)) : undefined,
-    isRapidDuplicate
+    recipientName,
+    amount,
+    isNewContact,
+    contactRelationship,
+    pastTransactionsCount,
+    totalPastAmount,
+    averagePastAmount: isNewContact ? undefined : averagePastAmount,
+    lastPaymentDate,
+    isUnusualAmount,
+    amountRatio,
+    findings,
+    neutralGuidanceEn: isNewContact
+      ? 'This is a new contact. We recommend verifying the payee identity before approving.'
+      : isUnusualAmount
+      ? 'The amount is higher than your usual payments. Please verify before continuing.'
+      : 'Details verified against your payment history. You can proceed with confirmation.',
+    neutralGuidanceTa: isNewContact
+      ? 'இது ஒரு புதிய தொடர்பு. உறுதிப்படுத்தும் முன் பெறுநரின் அடையாளத்தை சரிபார்க்கவும்.'
+      : isUnusualAmount
+      ? 'தொகை உங்கள் வழக்கமான கொடுப்பனவுகளை விட அதிகம். தொடரும் முன் சரிபார்க்கவும்.'
+      : 'உங்கள் பரிவர்த்தனை வரலாறுடன் விவரங்கள் சரிபார்க்கப்பட்டன.',
+    neutralGuidanceHi: isNewContact
+      ? 'यह एक नया संपर्क है। पुष्टि करने से पहले प्राप्तकर्ता की पहचान जांच लें।'
+      : isUnusualAmount
+      ? 'यह राशि आपके सामान्य भुगतानों से अधिक है। जारी रखने से पहले जांच लें।'
+      : 'आपके भुगतान इतिहास के अनुसार विवरणों की जांच की गई है।'
   };
 }
+
+// Backwards-compatible export alias for any components migrating to inspectPaymentSafety
+export const calculateRisk = inspectPaymentSafety;
+export type RiskResult = SafetyScanResult;

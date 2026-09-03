@@ -8,10 +8,9 @@ import {
   ArrowLeft, 
   X, 
   Check, 
-  AlertTriangle, 
-  AlertCircle, 
-  ShieldCheck, 
-  ShieldAlert
+  ShieldAlert,
+  Info,
+  ShieldCheck
 } from 'lucide-react';
 
 export const ExplainBeforePayScreen: React.FC = () => {
@@ -32,30 +31,33 @@ export const ExplainBeforePayScreen: React.FC = () => {
     notPressured: true
   });
 
-  const level = riskResult?.level || 'low';
-  const amountFormatted = Number(draftPayment.amount).toLocaleString('en-IN');
+  const numAmount = typeof draftPayment.amount === 'number' 
+    ? draftPayment.amount 
+    : Number(draftPayment.amount) || 0;
+  const amountFormatted = numAmount.toLocaleString('en-IN');
   const recipient = draftPayment.recipientName;
+  const isNew = riskResult?.isNewContact ?? true;
 
-  // Spoken script construction
+  // Spoken script construction (Neutral, no "risk levels")
   const getSpeechScript = (): { local: string; englishFallback: string } => {
     let local = '';
     let englishFallback = '';
 
-    if (level === 'low') {
-      local = t.ttsSafe
+    if (isNew) {
+      local = t.ttsNewContact
         .replace('{recipient}', recipient)
         .replace('{amount}', amountFormatted);
-      englishFallback = `SafePay safety check. This payment to ${recipient} for ${amountFormatted} rupees looks safe. You have sent money to this person before.`;
-    } else if (level === 'medium') {
-      local = t.ttsMedium
+      englishFallback = `SafeFinance safety check. Attention. You are sending ${amountFormatted} rupees to ${recipient} for the first time. You have no prior payment history with this contact. Please verify receiver carefully.`;
+    } else if (riskResult?.isUnusualAmount) {
+      local = t.ttsUnusual
         .replace('{recipient}', recipient)
         .replace('{amount}', amountFormatted);
-      englishFallback = `SafePay warning. You are sending ${amountFormatted} rupees to ${recipient}. This is a new recipient you have not paid before. Please verify receiver carefully.`;
+      englishFallback = `SafeFinance safety check. Attention. You are sending ${amountFormatted} rupees to ${recipient}. This amount is higher than your typical payment to this contact. Please verify before paying.`;
     } else {
-      local = t.ttsHigh
+      local = t.ttsFamiliar
         .replace('{recipient}', recipient)
         .replace('{amount}', amountFormatted);
-      englishFallback = `SafePay high risk alert. You are sending ${amountFormatted} rupees to ${recipient}. This is an unusually large amount to an unfamiliar receiver. If you are feeling pressured, cancel the payment now.`;
+      englishFallback = `SafeFinance safety check. You are sending ${amountFormatted} rupees to ${recipient}. You have sent payments to this contact before.`;
     }
 
     return { local, englishFallback };
@@ -81,41 +83,45 @@ export const ExplainBeforePayScreen: React.FC = () => {
     );
   };
 
-  // Plain-language warning card headline
-  let warningMessage = '';
+  // Plain language explanation message
+  let headline = '';
+  let subReason = '';
+
   if (language === 'ta') {
-    if (!riskResult?.isKnownRecipient) {
-      warningMessage = `நீங்கள் ${recipient} என்பவருக்கு முதல் முறையாக ₹${amountFormatted} பணம் அனுப்புகிறீர்கள்.`;
-    } else if (level === 'medium' || level === 'high') {
-      warningMessage = `${recipient} என்பவருக்கு ₹${amountFormatted} அனுப்பப்படுகிறது. வழக்கத்தை விட அதிக தொகை.`;
+    if (isNew) {
+      headline = `நீங்கள் ${recipient} என்பவருக்கு முதல் முறையாக ₹${amountFormatted} பணம் அனுப்புகிறீர்கள்.`;
+      subReason = 'இந்த நபருக்கு நீங்கள் இதற்கு முன் பணம் அனுப்பியதில்லை. பணம் அனுப்பும் முன் சரிபார்க்கவும்.';
+    } else if (riskResult?.isUnusualAmount) {
+      headline = `${recipient} என்பவருக்கு ₹${amountFormatted} அனுப்பப்படுகிறது.`;
+      subReason = 'இந்த தொகை உங்கள் வழக்கமான கொடுப்பனவுகளை விட அதிகமாக உள்ளது. செலுத்தும் முன் சரிபார்க்கவும்.';
     } else {
-      warningMessage = `${recipient} என்பவருக்கு ₹${amountFormatted} வழக்கமான பாதுகாப்பான பரிவர்த்தனை.`;
+      headline = `${recipient} என்பவருக்கு ₹${amountFormatted} அனுப்பப்படுகிறது.`;
+      subReason = 'நீங்கள் இதற்கு முன்பும் இந்த நபருக்கு பணம் அனுப்பியுள்ளீர்கள்.';
     }
   } else if (language === 'hi') {
-    if (!riskResult?.isKnownRecipient) {
-      warningMessage = `आप पहली बार ${recipient} को ₹${amountFormatted} भेज रहे हैं।`;
-    } else if (level === 'medium' || level === 'high') {
-      warningMessage = `${recipient} को ₹${amountFormatted} भेजा जा रहा है। यह सामान्य से अधिक राशि है।`;
+    if (isNew) {
+      headline = `आप पहली बार ${recipient} को ₹${amountFormatted} भेज रहे हैं।`;
+      subReason = 'आपने पहले कभी इस व्यक्ति को पैसे नहीं भेजे हैं। भुगतान करने से पहले कृपया जांच करें।';
+    } else if (riskResult?.isUnusualAmount) {
+      headline = `${recipient} को ₹${amountFormatted} भेजा जा रहा है।`;
+      subReason = 'यह राशि इस प्राप्तकर्ता को आपके सामान्य औसत भुगतान से अधिक है।';
     } else {
-      warningMessage = `${recipient} को ₹${amountFormatted} का भुगतान सामान्य और सुरक्षित है।`;
+      headline = `${recipient} को ₹${amountFormatted} भेजा जा रहा है।`;
+      subReason = 'आप पहले भी इस प्राप्तकर्ता को सुरक्षित रूप से पैसे भेज चुके हैं।';
     }
   } else {
     // English
-    if (!riskResult?.isKnownRecipient) {
-      warningMessage = `You are sending ₹${amountFormatted} to ${recipient} for the first time.`;
-    } else if (level === 'medium' || level === 'high') {
-      warningMessage = `You are sending ₹${amountFormatted} to ${recipient}. This amount is higher than your usual transfer.`;
+    if (isNew) {
+      headline = `You are sending ₹${amountFormatted} to ${recipient} for the first time.`;
+      subReason = 'This is a new recipient. You have never sent money to this person before. Please verify the receiver before paying.';
+    } else if (riskResult?.isUnusualAmount) {
+      headline = `You are sending ₹${amountFormatted} to ${recipient}.`;
+      subReason = `This amount is higher than your usual average transfer to this contact. Double-check before confirming.`;
     } else {
-      warningMessage = `You are sending ₹${amountFormatted} to ${recipient}. This matches your typical payments.`;
+      headline = `You are sending ₹${amountFormatted} to ${recipient}.`;
+      subReason = 'You have previously completed successful payments to this contact.';
     }
   }
-
-  // Localized reasons
-  const localizedReasons = riskResult?.reasonDetails.map((detail) => {
-    if (language === 'ta') return detail.textTa;
-    if (language === 'hi') return detail.textHi;
-    return detail.textEn;
-  }) || riskResult?.reasons || [];
 
   return (
     <div className="space-y-5 animate-fadeIn pb-6">
@@ -175,51 +181,48 @@ export const ExplainBeforePayScreen: React.FC = () => {
             <span className="inline-block h-4 w-1 bg-amber-400 animate-bounce" style={{ animationDelay: '150ms' }} />
             <span className="inline-block h-3 w-1 bg-amber-400 animate-bounce" style={{ animationDelay: '300ms' }} />
           </div>
-          <span>SafePay voice assistant is reading the safety warning aloud...</span>
+          <span>SafeFinance voice assistant is reading the safety notice aloud...</span>
         </div>
       )}
 
-      {/* Signature Plain-Language Warning Card */}
-      <div
-        className={`rounded-3xl border-2 p-5 sm:p-6 shadow-2xl transition-all ${
-          level === 'high'
-            ? 'border-rose-500 bg-rose-950/25'
-            : level === 'medium'
-            ? 'border-amber-500 bg-amber-950/25'
-            : 'border-emerald-500 bg-emerald-950/25'
-        }`}
-      >
-        <div className="flex items-center gap-2.5">
-          {level === 'high' ? (
-            <AlertCircle className="h-6 w-6 text-rose-400 shrink-0" />
-          ) : level === 'medium' ? (
-            <AlertTriangle className="h-6 w-6 text-amber-400 shrink-0" />
-          ) : (
-            <ShieldCheck className="h-6 w-6 text-emerald-400 shrink-0" />
+      {/* Signature Plain-Language Warning Card (Neutral, High-Contrast) */}
+      <div className="rounded-3xl border-2 border-slate-700 bg-slate-900/90 p-5 sm:p-6 shadow-2xl space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            {isNew ? (
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                <Info className="h-5 w-5" />
+              </div>
+            ) : (
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <ShieldCheck className="h-5 w-5" />
+              </div>
+            )}
+            <span className="text-base sm:text-lg font-black text-white">
+              {t.warningNotice}
+            </span>
+          </div>
+
+          {/* New contact badge if applicable */}
+          {isNew && (
+            <span className="rounded-full bg-cyan-500/15 border border-cyan-500/30 px-3 py-1 text-[11px] font-bold text-cyan-300">
+              {t.firstTimeContactBadge}
+            </span>
           )}
-          <span className="text-base sm:text-lg font-black text-white">
-            {t.warningNotice}
-          </span>
         </div>
 
-        {/* Highlighted Warning Statement */}
-        <div className="mt-3.5 rounded-2xl bg-slate-950/80 p-4 border border-slate-800">
+        {/* Highlighted Plain-Language Statement */}
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-4 space-y-2">
           <p className="text-base sm:text-lg font-bold text-slate-100 leading-snug">
-            "{warningMessage}"
+            "{headline}"
           </p>
-          
-          {/* Specific reasons list */}
-          <div className="mt-3 space-y-1.5 border-t border-slate-800 pt-3">
-            {localizedReasons.map((reason, idx) => (
-              <p key={idx} className="text-xs text-slate-300 leading-relaxed">
-                • {reason}
-              </p>
-            ))}
-          </div>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            {subReason}
+          </p>
         </div>
 
         {/* 3-Point Interactive Verification Checklist */}
-        <div className="mt-5 space-y-2.5">
+        <div className="space-y-2.5 pt-1">
           <span className="block text-xs font-bold uppercase tracking-wider text-slate-300">
             {t.checklistTitle}
           </span>

@@ -1,110 +1,157 @@
 import React, { useEffect } from 'react';
-import { useApp } from '../state/AppContext';
-import { translations } from '../lib/i18n';
 import confetti from 'canvas-confetti';
-import { CheckCircle, ShieldCheck, History, Home, Info, ArrowRight } from 'lucide-react';
+import { CheckCircle2, History, Home, Info, X } from 'lucide-react';
+import { translations } from '../lib/i18n';
+import { useApp } from '../state/AppContext';
 
 export const SuccessScreen: React.FC = () => {
-  const { language, setScreen, lastTransaction, resetDraft } = useApp();
+  const { language, lastTransaction, resetDraft, setScreen, setShowSuccessPopup, showSuccessPopup } = useApp();
   const t = translations[language];
 
-  // Fire celebratory confetti on mount
   useEffect(() => {
     try {
       confetti({
-        particleCount: 50,
-        spread: 60,
-        origin: { y: 0.6 }
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.65 }
       });
     } catch {
-      // ignore
+      // Ignore animation failures.
     }
   }, []);
 
+  if (!lastTransaction) {
+    return null;
+  }
+
   const handleDone = () => {
+    setShowSuccessPopup(false);
     resetDraft();
     setScreen('home');
   };
 
-  const handleViewHistory = () => {
+  const handleHistory = () => {
+    setShowSuccessPopup(false);
     resetDraft();
     setScreen('history');
   };
 
   return (
-    <div className="space-y-6 animate-fadeIn pb-6 text-center">
-      {/* Clear Mandatory Simulated Prototype Notice Banner */}
-      <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3.5 py-1 text-[11px] font-bold tracking-wider text-amber-300">
-        <Info className="h-3.5 w-3.5" />
-        <span>{t.prototypeBadge}</span>
-      </div>
-
-      {/* Success Badge & Animated Check */}
-      <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-2xl shadow-emerald-500/30 animate-scaleUp">
-        <CheckCircle className="h-14 w-14 stroke-[2.5]" />
-      </div>
-
-      {/* Title & Amount */}
-      <div>
-        <h2 className="text-2xl sm:text-3xl font-black text-white">{t.paymentSuccessful}</h2>
-        <p className="mt-1 text-xs text-slate-400">{t.successSubtitle}</p>
-        <div className="mt-4 text-4xl sm:text-5xl font-black text-emerald-400 tracking-tight">
-          ₹{lastTransaction?.amount.toLocaleString('en-IN') || '0'}
+    <div className="space-y-5">
+      {showSuccessPopup && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 px-4">
+          <div className="w-full max-w-sm rounded-[28px] border p-6 shadow-2xl" style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel)' }}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-lg font-black" style={{ color: 'var(--sf-text-strong)' }}>
+                  {t.successPopupTitle}
+                </div>
+                <p className="mt-2 text-sm leading-6" style={{ color: 'var(--sf-text-soft)' }}>
+                  {t.successPopupText}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSuccessPopup(false)}
+                className="rounded-full p-2"
+                style={{ background: 'var(--sf-panel-soft)', color: 'var(--sf-text-muted)' }}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-4 rounded-2xl border p-4 text-sm" style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel-soft)', color: 'var(--sf-text-strong)' }}>
+              {t.transactionId}: <span className="font-mono font-bold">{lastTransaction.id}</span>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Receipt Details Card */}
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/90 p-5 sm:p-6 text-left shadow-xl space-y-3.5">
-        <div className="flex items-center justify-between text-xs pb-3 border-b border-slate-800">
-          <span className="text-slate-400">{t.transactionId}</span>
-          <span className="font-mono font-bold text-emerald-400">{lastTransaction?.id || 'SAFE829102'}</span>
+      <section className="rounded-[28px] border p-6 text-center" style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel)' }}>
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[24px] text-white shadow-xl" style={{ background: 'var(--sf-accent-gradient)' }}>
+          <CheckCircle2 className="h-10 w-10" />
+        </div>
+        <h2 className="mt-5 text-3xl font-black" style={{ color: 'var(--sf-text-strong)' }}>
+          {t.successTitle}
+        </h2>
+        <p className="mt-2 text-sm leading-6" style={{ color: 'var(--sf-text-soft)' }}>
+          {t.successSubtitle}
+        </p>
+        <div className="mt-4 text-4xl font-black" style={{ color: 'var(--sf-text-strong)' }}>
+          Rs. {lastTransaction.amount.toLocaleString('en-IN')}
+        </div>
+      </section>
+
+      <section className="rounded-[28px] border p-6" style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel)' }}>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.22em]" style={{ color: 'var(--sf-text-muted)' }}>
+              {t.transactionId}
+            </div>
+            <div className="mt-2 font-mono text-lg font-black" style={{ color: 'var(--sf-text-strong)' }}>
+              {lastTransaction.id}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.22em]" style={{ color: 'var(--sf-text-muted)' }}>
+              {t.status}
+            </div>
+            <div className="mt-2 text-lg font-black" style={{ color: 'var(--sf-text-strong)' }}>
+              {lastTransaction.paymentType === 'merchant' ? t.merchantPaid : t.debitCompleted}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.22em]" style={{ color: 'var(--sf-text-muted)' }}>
+              {t.payingTo}
+            </div>
+            <div className="mt-2 text-lg font-black" style={{ color: 'var(--sf-text-strong)' }}>
+              {lastTransaction.recipientName}
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.22em]" style={{ color: 'var(--sf-text-muted)' }}>
+              {t.paymentReason}
+            </div>
+            <div className="mt-2 text-lg font-black" style={{ color: 'var(--sf-text-strong)' }}>
+              {lastTransaction.reason}
+            </div>
+          </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-400">{t.paidTo}</span>
-          <span className="font-bold text-white text-sm">{lastTransaction?.recipientName || 'Payee'}</span>
+        <div className="mt-5 rounded-[24px] border px-4 py-4 text-sm leading-6" style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel-soft)', color: 'var(--sf-text-soft)' }}>
+          <div className="inline-flex items-center gap-2 font-bold" style={{ color: 'var(--sf-text-strong)' }}>
+            <Info className="h-4 w-4" />
+            {t.receiverDelayLabel}
+          </div>
+          <p className="mt-2">
+            {lastTransaction.paymentType === 'p2p'
+              ? t.senderSettlementPending
+              : t.merchantSettlementComplete}
+          </p>
         </div>
+      </section>
 
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-400">{t.mobileNumber}</span>
-          <span className="font-medium text-slate-200">{lastTransaction?.phoneNumber || '98765 43210'}</span>
-        </div>
-
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-slate-400">{t.time}</span>
-          <span className="text-slate-300">{lastTransaction?.timestamp || 'Today'}</span>
-        </div>
-
-        <div className="flex items-center justify-between text-xs pt-3 border-t border-slate-800">
-          <span className="text-slate-400">SafePay Safety Status</span>
-          <span className="inline-flex items-center gap-1 text-emerald-400 font-bold">
-            <ShieldCheck className="h-3.5 w-3.5" />
-            <span>Passed AI Safety Checks</span>
-          </span>
-        </div>
-      </div>
-
-      <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
-        {t.simulatedBadgeNotice}
-      </p>
-
-      {/* Action Buttons */}
-      <div className="space-y-3 pt-2">
+      <div className="flex flex-wrap gap-3">
         <button
+          type="button"
           onClick={handleDone}
-          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 py-4 text-base font-bold text-white shadow-xl shadow-emerald-950/40 transition hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98]"
+          className="rounded-full px-6 py-3 text-sm font-black text-white"
+          style={{ background: 'var(--sf-accent-gradient)' }}
         >
-          <Home className="h-5 w-5" />
-          <span>{t.done}</span>
+          <span className="inline-flex items-center gap-2">
+            <Home className="h-4 w-4" />
+            {t.done}
+          </span>
         </button>
-
         <button
-          onClick={handleViewHistory}
-          className="w-full flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 py-3 text-xs font-semibold text-slate-300 hover:bg-slate-700 transition"
+          type="button"
+          onClick={handleHistory}
+          className="rounded-full border px-6 py-3 text-sm font-black"
+          style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel-soft)', color: 'var(--sf-text-strong)' }}
         >
-          <History className="h-4 w-4" />
-          <span>{t.viewHistory}</span>
-          <ArrowRight className="h-4 w-4" />
+          <span className="inline-flex items-center gap-2">
+            <History className="h-4 w-4" />
+            {t.viewHistory}
+          </span>
         </button>
       </div>
     </div>

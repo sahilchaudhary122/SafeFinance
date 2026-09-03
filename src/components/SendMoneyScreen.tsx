@@ -1,194 +1,285 @@
 import React, { useState } from 'react';
+import { ArrowLeft, CircleAlert, QrCode, UserRound } from 'lucide-react';
+import { QUICK_PAYEES } from '../lib/dummyData';
+import { getPaymentReasonOptions, translations } from '../lib/i18n';
 import { useApp } from '../state/AppContext';
-import { translations } from '../lib/i18n';
-import { ArrowLeft, User, Phone, IndianRupee, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export const SendMoneyScreen: React.FC = () => {
-  const { language, setScreen, draftPayment, updateDraft, executeRiskCheck } = useApp();
+  const { availableBalance, draftPayment, history, language, setScreen, updateDraft } = useApp();
   const t = translations[language];
-
+  const reasonOptions = getPaymentReasonOptions(language);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleQuickContact = (name: string, phone: string, amount?: number) => {
+  const quickPayees = QUICK_PAYEES.filter((payee) => payee.paymentType === draftPayment.paymentType);
+  const knownContacts = history.filter((transaction, index, all) => transaction.direction === 'debit' && transaction.paymentType === 'p2p' && transaction.contactRelationship !== 'new' && all.findIndex((item) => item.recipientName === transaction.recipientName) === index);
+
+  const handleQuickFill = (name: string, upiId: string, amount: number, reasonCode: string) => {
     updateDraft({
       recipientName: name,
-      phoneNumber: phone,
-      amount: amount || draftPayment.amount || ''
+      phoneNumber: upiId,
+      amount,
+      reasonCode: reasonCode as typeof draftPayment.reasonCode,
+      customReason: ''
     });
     setErrorMessage(null);
   };
 
-  const handleContinue = (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateRecipient = () => {
+    const phoneOrUpi = draftPayment.phoneNumber.trim();
     if (!draftPayment.recipientName.trim()) {
-      setErrorMessage(t.nameRequired);
+      return t.nameRequired;
+    }
+
+    const amount = typeof draftPayment.amount === 'number' ? draftPayment.amount : Number(draftPayment.amount);
+    if (!amount || amount <= 0) {
+      return t.amountRequired;
+    }
+
+    if (!draftPayment.reasonCode) {
+      return t.reasonRequired;
+    }
+
+    if (draftPayment.reasonCode === 'other' && !draftPayment.customReason.trim()) {
+      return t.reasonRequired;
+    }
+
+    const digitCount = phoneOrUpi.replace(/\D/g, '').length;
+    if (!phoneOrUpi || (!phoneOrUpi.includes('@') && digitCount < 10)) {
+      return t.phoneRequired;
+    }
+
+    if (amount > availableBalance) {
+      return t.insufficientBalance;
+    }
+
+    return null;
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const validationError = validateRecipient();
+    if (validationError) {
+      setErrorMessage(validationError);
       return;
     }
 
-    const numAmount = typeof draftPayment.amount === 'number' 
-      ? draftPayment.amount 
-      : Number(draftPayment.amount);
-
-    if (!numAmount || numAmount <= 0) {
-      setErrorMessage(t.amountRequired);
-      return;
-    }
-
-    const cleanPhone = draftPayment.phoneNumber.replace(/\D/g, '');
-    if (cleanPhone && cleanPhone.length < 10) {
-      setErrorMessage(t.phoneRequired);
-      return;
-    }
-
-    // Run pure deterministic risk engine
-    executeRiskCheck();
-    setScreen('risk-check');
+    setScreen('confirm');
   };
 
   return (
-    <div className="space-y-5 animate-fadeIn pb-6">
-      {/* Top Bar with Back Button */}
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <button
+          type="button"
           onClick={() => setScreen('home')}
-          className="flex items-center gap-1.5 rounded-xl border border-slate-700/80 bg-slate-800/80 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-slate-700"
+          className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold"
+          style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel-soft)', color: 'var(--sf-text-strong)' }}
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>{t.back}</span>
+          {t.back}
         </button>
-
-        <span className="text-xs font-semibold text-emerald-400">
-          Step 1 of 4 • Details
-        </span>
+        <div className="text-sm font-semibold" style={{ color: 'var(--sf-text-muted)' }}>
+          {t.availableBalance}: Rs. {availableBalance.toLocaleString('en-IN')}
+        </div>
       </div>
 
-      {/* Screen Title */}
-      <div>
-        <h2 className="text-xl sm:text-2xl font-black text-white">{t.sendMoneyTitle}</h2>
-        <p className="mt-1 text-xs text-slate-400">{t.sendMoneySubtitle}</p>
-      </div>
+      <button
+        type="button"
+        onClick={() => setScreen('scan-qr')}
+        className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold"
+        style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel-soft)', color: 'var(--sf-text-strong)' }}
+      >
+        <QrCode className="h-4 w-4" />
+        {t.scanQrPay}
+      </button>
 
-      {/* Form Card */}
-      <form onSubmit={handleContinue} className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl">
-        {/* Recipient Name Field */}
-        <div>
-          <label htmlFor="recipient-name" className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-            {t.recipientNameLabel} <span className="text-rose-400">*</span>
-          </label>
-          <div className="relative mt-1.5">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-              <User className="h-5 w-5" />
+      <section className="rounded-[28px] border p-6" style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel)' }}>
+        <h2 className="text-2xl font-black" style={{ color: 'var(--sf-text-strong)' }}>
+          {t.sendMoneyTitle}
+        </h2>
+        <p className="mt-2 text-sm leading-6" style={{ color: 'var(--sf-text-soft)' }}>
+          {t.sendMoneySubtitle}
+        </p>
+
+        <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+          <div>
+            <label className="mb-2 block text-xs font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--sf-text-muted)' }}>
+              {t.payeeType}
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => updateDraft({ paymentType: 'p2p', recipientName: '', phoneNumber: '' })}
+                className="rounded-2xl border px-4 py-3 text-sm font-bold transition"
+                style={{
+                  borderColor: 'var(--sf-border)',
+                  background: draftPayment.paymentType === 'p2p' ? 'var(--sf-accent-gradient)' : 'var(--sf-panel-soft)',
+                  color: draftPayment.paymentType === 'p2p' ? '#fff' : 'var(--sf-text-strong)'
+                }}
+              >
+                {t.person}
+              </button>
+              <button
+                type="button"
+                onClick={() => updateDraft({ paymentType: 'merchant', recipientName: '', phoneNumber: '' })}
+                className="rounded-2xl border px-4 py-3 text-sm font-bold transition"
+                style={{
+                  borderColor: 'var(--sf-border)',
+                  background: draftPayment.paymentType === 'merchant' ? 'var(--sf-accent-gradient)' : 'var(--sf-panel-soft)',
+                  color: draftPayment.paymentType === 'merchant' ? '#fff' : 'var(--sf-text-strong)'
+                }}
+              >
+                {t.merchant}
+              </button>
             </div>
-            <input
-              id="recipient-name"
-              type="text"
-              required
-              value={draftPayment.recipientName}
-              onChange={(e) => {
-                updateDraft({ recipientName: e.target.value });
-                setErrorMessage(null);
-              }}
-              placeholder={t.recipientNamePlaceholder}
-              className="w-full rounded-xl border border-slate-700 bg-slate-800/90 py-3.5 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-            />
           </div>
-        </div>
 
-        {/* Quick Pick Frequent Contacts */}
-        <div>
-          <span className="text-[11px] font-semibold text-slate-400">{t.quickSelectKnown}</span>
-          <div className="mt-1.5 flex flex-wrap gap-2">
+          <div className="grid gap-3 sm:grid-cols-2">
+            {draftPayment.paymentType === 'p2p' && knownContacts.map((contact) => (
+              <button key={`known-${contact.recipientName}`} type="button" onClick={() => handleQuickFill(contact.recipientName, contact.phoneNumber, contact.amount, contact.reasonCode)} className="rounded-2xl border p-4 text-left" style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel-soft)' }}>
+                <div className="text-base font-black" style={{ color: 'var(--sf-text-strong)' }}>{contact.recipientName}</div>
+                <div className="mt-1 text-sm" style={{ color: 'var(--sf-text-muted)' }}>{contact.phoneNumber}</div>
+                <div className="mt-3 text-xs font-semibold" style={{ color: 'var(--sf-success)' }}>Known contact</div>
+              </button>
+            ))}
+            {quickPayees.map((payee) => (
+              <button
+                key={payee.upiId}
+                type="button"
+                onClick={() => handleQuickFill(payee.name, payee.upiId, payee.suggestedAmount, payee.defaultReasonCode)}
+                className="rounded-2xl border p-4 text-left"
+                style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-panel-soft)' }}
+              >
+                <div className="text-base font-black" style={{ color: 'var(--sf-text-strong)' }}>
+                  {payee.name}
+                </div>
+                <div className="mt-1 text-sm" style={{ color: 'var(--sf-text-muted)' }}>
+                  {payee.upiId}
+                </div>
+                <div className="mt-3 text-xs font-semibold" style={{ color: 'var(--sf-accent)' }}>
+                  Rs. {payee.suggestedAmount.toLocaleString('en-IN')}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--sf-text-muted)' }}>
+                {t.recipientNameLabel}
+              </span>
+              <input
+                value={draftPayment.recipientName}
+                onChange={(event) => {
+                  updateDraft({ recipientName: event.target.value });
+                  setErrorMessage(null);
+                }}
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+                style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-input)', color: 'var(--sf-text-strong)' }}
+                placeholder={draftPayment.paymentType === 'p2p' ? 'Tilak' : 'Fresh Basket Store'}
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--sf-text-muted)' }}>
+                {t.phoneNumberLabel}
+              </span>
+              <input
+                value={draftPayment.phoneNumber}
+                onChange={(event) => {
+                  updateDraft({ phoneNumber: event.target.value });
+                  setErrorMessage(null);
+                }}
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+                style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-input)', color: 'var(--sf-text-strong)' }}
+                placeholder={draftPayment.paymentType === 'p2p' ? 'tilak@safefinance' : 'merchant@upi'}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--sf-text-muted)' }}>
+                {t.amountLabel}
+              </span>
+              <input
+                value={draftPayment.amount}
+                onChange={(event) => {
+                  updateDraft({
+                    amount: event.target.value === '' ? '' : Number(event.target.value)
+                  });
+                  setErrorMessage(null);
+                }}
+                type="number"
+                min="1"
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+                style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-input)', color: 'var(--sf-text-strong)' }}
+                placeholder="5000"
+              />
+            </label>
+
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--sf-text-muted)' }}>
+                {t.reasonLabel}
+              </span>
+              <select
+                value={draftPayment.reasonCode}
+                onChange={(event) => {
+                  updateDraft({ reasonCode: event.target.value as typeof draftPayment.reasonCode, customReason: '' });
+                  setErrorMessage(null);
+                }}
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+                style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-input)', color: 'var(--sf-text-strong)' }}
+              >
+                <option value="">{t.selectReason}</option>
+                {reasonOptions.map((option) => (
+                  <option key={option.code} value={option.code}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          {draftPayment.reasonCode === 'other' && (
+            <label className="block">
+              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.2em]" style={{ color: 'var(--sf-text-muted)' }}>
+                {t.customReasonLabel}
+              </span>
+              <input
+                value={draftPayment.customReason}
+                onChange={(event) => updateDraft({ customReason: event.target.value })}
+                className="w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+                style={{ borderColor: 'var(--sf-border)', background: 'var(--sf-input)', color: 'var(--sf-text-strong)' }}
+                placeholder={t.customReasonPlaceholder}
+              />
+            </label>
+          )}
+
+          {errorMessage && (
+            <div className="rounded-2xl border px-4 py-3 text-sm font-medium" style={{ borderColor: 'rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)', color: 'var(--sf-danger)' }}>
+              <span className="inline-flex items-center gap-2">
+                <CircleAlert className="h-4 w-4" />
+                {errorMessage}
+              </span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3">
             <button
-              type="button"
-              onClick={() => handleQuickContact('Priya Sharma', '98765 43210', 500)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-950/40 px-2.5 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/50"
+              type="submit"
+              className="rounded-full px-6 py-3 text-sm font-black text-white"
+              style={{ background: 'var(--sf-accent-gradient)' }}
             >
-              <span>👤 Priya Sharma</span>
-              <span className="rounded bg-emerald-500/20 px-1 text-[10px]">Freq: ₹500</span>
+              {t.continueToConfirm}
             </button>
-            <button
-              type="button"
-              onClick={() => handleQuickContact('College Canteen', '91234 56789', 120)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-950/40 px-2.5 py-1.5 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/50"
-            >
-              <span>☕ College Canteen</span>
-              <span className="rounded bg-emerald-500/20 px-1 text-[10px]">Freq: ₹120</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Mobile Number Field */}
-        <div>
-          <label htmlFor="phone-number" className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-            {t.phoneNumberLabel}
-          </label>
-          <div className="relative mt-1.5">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-              <Phone className="h-5 w-5" />
+            <div className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--sf-text-muted)' }}>
+              <UserRound className="h-4 w-4" />
+              {t.demoUpiPinHint}
             </div>
-            <input
-              id="phone-number"
-              type="tel"
-              value={draftPayment.phoneNumber}
-              onChange={(e) => {
-                updateDraft({ phoneNumber: e.target.value });
-                setErrorMessage(null);
-              }}
-              placeholder={t.phoneNumberPlaceholder}
-              className="w-full rounded-xl border border-slate-700 bg-slate-800/90 py-3.5 pl-11 pr-4 text-sm font-medium text-white placeholder-slate-500 transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-            />
           </div>
-        </div>
-
-        {/* Amount Field */}
-        <div>
-          <label htmlFor="payment-amount" className="block text-xs font-bold uppercase tracking-wider text-slate-300">
-            {t.amountLabel} <span className="text-rose-400">*</span>
-          </label>
-          <div className="relative mt-1.5">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
-              <IndianRupee className="h-5 w-5 font-bold" />
-            </div>
-            <input
-              id="payment-amount"
-              type="number"
-              min="1"
-              required
-              value={draftPayment.amount === '' ? '' : draftPayment.amount}
-              onChange={(e) => {
-                const val = e.target.value === '' ? '' : Number(e.target.value);
-                updateDraft({ amount: val });
-                setErrorMessage(null);
-              }}
-              placeholder={t.amountPlaceholder}
-              className="w-full rounded-xl border border-slate-700 bg-slate-800/90 py-3.5 pl-11 pr-4 text-base font-bold text-white placeholder-slate-500 transition focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
-            />
-          </div>
-        </div>
-
-        {/* Error message if any */}
-        {errorMessage && (
-          <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs font-semibold text-rose-300">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
-        {/* Informational shield note */}
-        <div className="flex items-center gap-2 rounded-xl bg-slate-800/60 p-3 text-xs text-slate-400">
-          <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0" />
-          <span>SafePay AI will analyze this recipient before asking for confirmation.</span>
-        </div>
-
-        {/* Submit / Trigger Safety Check CTA */}
-        <button
-          type="submit"
-          className="w-full flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 py-4 text-base font-bold text-white shadow-lg shadow-emerald-900/30 transition hover:from-emerald-500 hover:to-teal-500 active:scale-[0.98]"
-        >
-          <ShieldCheck className="h-5 w-5" />
-          <span>{t.continueSafetyCheck}</span>
-        </button>
-      </form>
+        </form>
+      </section>
     </div>
   );
 };

@@ -1,32 +1,34 @@
-# React + TypeScript + Vite
+# SafeFinance
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+SafeFinance is a local demo UPI app for testing balances, payment history, delayed person-to-person settlement, and transaction-freeze requests. It does not move real money or use an external API.
 
-Currently, two official plugins are available:
+## Run locally
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Build the production bundle with `npm run build`.
+
+## Demo accounts
+
+| Role | Username | Password |
+| --- | --- | --- |
+| Sender | `sahilchaudhary` | `sahil1122` |
+| Receiver | `tilak` | `tilak1122` |
+
+The demo UPI PIN is `2580`.
+
+## Test flow
+
+1. Sign in as `sahilchaudhary`, then enter any valid UPI ID/mobile number or use **Scan & pay** to fetch payee information from a UPI QR code.
+2. The sender balance is deducted immediately and the transaction receives a stored ID.
+3. For a payment to Tilak, sign out and sign in as `tilak`. The received transaction is marked successful while the balance remains pending for 10 minutes.
+4. After settlement, Tilak's balance and history reflect the credit. The sender can request a freeze only from an outgoing person-to-person transaction in history.
+
+For payments up to Rs. 50,000, choose either UPI PIN or face/fingerprint approval. Payments above Rs. 50,000 require both. After more than three person-to-person payments to the same payee, the local database labels the contact as **Family / frequent contact**; one to three payments are labeled **Known contact**. Light/dark themes and English, Hindi, and Tamil are available from the header.
+
+## Configuration
+
+[.env](.env) holds non-secret local-demo configuration: app name, settlement delay, high-value MFA threshold, and demo UPI PIN. Transaction/account data is stored in browser `localStorage` under `safefinance_local_db_v1`; clearing that key resets the demo data.

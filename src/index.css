@@ -2,51 +2,80 @@
 
 @layer base {
   :root {
-    --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-sans: 'Outfit', 'Sora', 'Segoe UI', sans-serif;
+    --sf-app-bg: #f2f7ff;
+    --sf-app-overlay: radial-gradient(circle at top left, rgba(14, 165, 233, 0.12), transparent 32%), linear-gradient(180deg, #f9fbff 0%, #eef4ff 100%);
+    --sf-header: rgba(255, 255, 255, 0.88);
+    --sf-shell: rgba(255, 255, 255, 0.85);
+    --sf-shell-border: rgba(148, 163, 184, 0.24);
+    --sf-panel: rgba(255, 255, 255, 0.76);
+    --sf-panel-soft: rgba(248, 250, 252, 0.88);
+    --sf-input: rgba(255, 255, 255, 0.98);
+    --sf-border: rgba(148, 163, 184, 0.28);
+    --sf-text-strong: #0f172a;
+    --sf-text-soft: #334155;
+    --sf-text-muted: #64748b;
+    --sf-accent: #0f766e;
+    --sf-info: #1d4ed8;
+    --sf-success: #15803d;
+    --sf-danger: #dc2626;
+    --sf-accent-gradient: linear-gradient(135deg, #0f766e 0%, #0891b2 100%);
+    --sf-accent-soft: linear-gradient(145deg, rgba(15, 118, 110, 0.16), rgba(14, 165, 233, 0.12));
+    --sf-demo-bar: rgba(255, 255, 255, 0.74);
+  }
+
+  :root[data-theme='dark'] {
+    --sf-app-bg: #07111d;
+    --sf-app-overlay: radial-gradient(circle at top left, rgba(16, 185, 129, 0.16), transparent 26%), linear-gradient(180deg, #07111d 0%, #0b1324 100%);
+    --sf-header: rgba(10, 15, 25, 0.86);
+    --sf-shell: rgba(9, 14, 24, 0.9);
+    --sf-shell-border: rgba(51, 65, 85, 0.8);
+    --sf-panel: rgba(10, 16, 27, 0.78);
+    --sf-panel-soft: rgba(15, 23, 42, 0.94);
+    --sf-input: rgba(10, 16, 27, 1);
+    --sf-border: rgba(71, 85, 105, 0.42);
+    --sf-text-strong: #f8fafc;
+    --sf-text-soft: #cbd5e1;
+    --sf-text-muted: #94a3b8;
+    --sf-accent: #34d399;
+    --sf-info: #60a5fa;
+    --sf-success: #4ade80;
+    --sf-danger: #f87171;
+    --sf-accent-gradient: linear-gradient(135deg, #059669 0%, #0ea5e9 100%);
+    --sf-accent-soft: linear-gradient(145deg, rgba(5, 150, 105, 0.18), rgba(14, 165, 233, 0.1));
+    --sf-demo-bar: rgba(7, 17, 29, 0.88);
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html[data-theme='dark'] {
+    color-scheme: dark;
   }
 
   body {
-    font-family: var(--font-sans);
-    background-color: #0B0F17;
-    color: #F8FAFC;
     margin: 0;
-    padding: 0;
     min-height: 100vh;
+    font-family: var(--font-sans);
+    background: var(--sf-app-bg);
+    color: var(--sf-text-strong);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-}
 
-/* Custom accessible utilities and pulse animations */
-@keyframes pulse-slow {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(1.02); }
-}
+  * {
+    box-sizing: border-box;
+  }
 
-@keyframes scan-line {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(1000%); }
-}
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
 
-.animate-pulse-slow {
-  animation: pulse-slow 3s ease-in-out infinite;
-}
-
-.animate-scan {
-  animation: scan-line 2s linear infinite;
-}
-
-/* Glassmorphism helpers */
-.glass-panel {
-  background: rgba(18, 24, 38, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.glass-card {
-  background: rgba(25, 33, 50, 0.75);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  ::selection {
+    background: rgba(14, 165, 233, 0.28);
+  }
 }
