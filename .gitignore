@@ -1,0 +1,87 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.yarn/
+.yarn/cache/
+.yarn/install-state.gz
+
+
+# Build / Production
+dist/
+dist-ssr/
+build/
+out/
+
+
+# Environment / Secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# Vite
+.vite/
+*.local
+
+
+# Coverage
+coverage/
+.nyc_output/
+
+
+# TypeScript
+*.tsbuildinfo
+
+
+# IDE / Editors
+.vscode/
+!.vscode/extensions.json
+.idea/
+
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+
+# Python backend (if SafeFinance
+# contains Python code)
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.coverage
+
+
+# Database / local development
+*.sqlite
+*.sqlite3
+*.db
+
+
+# Replit
+.replit
