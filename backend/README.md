@@ -1,22 +1,25 @@
 # SafeFinance Backend
 
-SafeFinance uses n8n Cloud as its backend automation layer.
+SafeFinance uses a backend risk-assessment engine for the hackathon prototype.
 
-## Backend Flow
+## Architecture
 
-React Frontend → n8n Cloud Webhook → Google Sheets → Google Gemini → Risk Assessment → React Frontend
+React Frontend
+→ Backend API
+→ Financial Risk Engine
+→ Risk Score + Insights + Recommendation
 
-## Webhook
+The complete AI workflow uses:
 
-POST https://safefinance.app.n8n.cloud/webhook/evaluate
+React → n8n Cloud → Google Sheets → Google Gemini
 
-## Technologies
+## API
 
-- n8n Cloud
-- Google Sheets
-- Google Gemini
-- React
+### POST /api/evaluate
 
-## Security
+Example request:
 
-API keys and OAuth credentials are stored in n8n and are not committed to GitHub.
+```json
+{
+  "student_id": "SF001"
+}
