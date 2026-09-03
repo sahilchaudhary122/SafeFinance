@@ -1,8 +1,7 @@
 import { useState } from "react";
 import "./App.css";
 
-const API_URL =
-  "https://safefinance.app.n8n.cloud/webhook/evaluate";
+const API_URL = "/api/webhook/evaluate";
 
 // Demo student profiles
 const students = {
